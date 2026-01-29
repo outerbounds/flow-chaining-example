@@ -4,9 +4,10 @@ Accesses PreprocessFlow's outputs via current.trigger.run.data
 """
 
 from metaflow import step, Parameter, current, trigger_on_finish
-from obproject import ProjectFlow
+from obproject import ProjectFlow, project_trigger
 
 
+@project_trigger(event="start_training")
 @trigger_on_finish(flow="PreprocessFlow")
 class TrainFlow(ProjectFlow):
     """

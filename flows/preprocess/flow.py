@@ -4,7 +4,7 @@ When finished, automatically triggers TrainFlow.
 """
 
 from metaflow import step, Parameter, current
-from obproject import ProjectFlow
+from obproject import ProjectFlow, ProjectEvent
 
 
 class PreprocessFlow(ProjectFlow):
@@ -43,6 +43,12 @@ class PreprocessFlow(ProjectFlow):
     def end(self):
         # These artifacts are accessible to TrainFlow via current.trigger.run.data
         print(f"Preprocess complete. Outputs: {self.processed_paths}")
+
+        # Trigger TrainFlow via ProjectEvent (auto-detects project/branch)
+        ProjectEvent("start_training").publish(
+            payload={"processed_paths": self.processed_paths}
+        )
+        print("Published start_training event")
 
 
 if __name__ == "__main__":
