@@ -3,6 +3,7 @@ on:
   push:
     branches:
     - main
+    - eddie/test-01-26-2026
   pull_request:
     branches:
     - main
