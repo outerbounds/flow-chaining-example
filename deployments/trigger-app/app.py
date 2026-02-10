@@ -2,9 +2,10 @@
 
 import os
 import json
+import uuid
 import streamlit as st
 from metaflow import Flow, namespace
-from obproject import ProjectEvent
+from metaflow.integrations import ArgoEvent
 
 st.title("Flow Trigger Test")
 
@@ -42,9 +43,13 @@ if st.button("Trigger TrainFlow"):
     try:
         # Validate JSON
         json.loads(processed_paths)
-        pe = ProjectEvent("start_training", project=project, branch=branch)
-        st.write(f"Publishing event: {pe.event}")
-        event_id = pe.publish(payload={"processed_paths": processed_paths})
+        event_name = f"prj.{project}.{branch}.start_training"
+        event_id = str(uuid.uuid4())
+        st.write(f"Publishing event: {event_name}")
+        ArgoEvent(event_name).publish(payload={
+            "processed_paths": processed_paths,
+            "id": event_id,
+        })
         st.success(f"Event published! ID: `{event_id}`")
     except json.JSONDecodeError:
         st.error("Invalid JSON format for processed_paths")
