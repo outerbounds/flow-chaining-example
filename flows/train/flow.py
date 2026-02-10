@@ -15,27 +15,15 @@ class TrainFlow(ProjectFlow):
 
     learning_rate = Parameter("learning_rate", default=0.01, type=float)
     n_estimators = Parameter("n_estimators", default=100, type=int)
+    # Event payload maps to this Parameter automatically
+    processed_paths = Parameter("processed_paths", default="[]")
 
     @step
     def start(self):
-        # Access data from the trigger
-        if current.trigger:
-            # @project_trigger provides data via event payload
-            if current.trigger.event:
-                payload = current.trigger.event.get("payload", {})
-                self.input_paths = payload.get("processed_paths", [])
-                print(f"Triggered by event, payload: {payload}")
-            # @trigger_on_finish provides current.trigger.run
-            elif current.trigger.run:
-                self.input_paths = current.trigger.run.data.processed_paths
-                print(f"Triggered by flow: {current.trigger.run.pathspec}")
-            else:
-                self.input_paths = []
-            print(f"Input paths: {self.input_paths}")
-        else:
-            # Standalone run - use defaults for testing
-            self.input_paths = ["test/path1_processed", "test/path2_processed"]
-            print(f"Standalone run. Using test paths: {self.input_paths}")
+        # Payload from ProjectEvent maps to Parameters
+        import json
+        self.input_paths = json.loads(self.processed_paths) if isinstance(self.processed_paths, str) else self.processed_paths
+        print(f"Input paths (from event payload): {self.input_paths}")
 
         self.next(self.train)
 

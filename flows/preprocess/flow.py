@@ -45,8 +45,12 @@ class PreprocessFlow(ProjectFlow):
         print(f"Preprocess complete. Outputs: {self.processed_paths}")
 
         # Trigger TrainFlow via ProjectEvent (auto-detects project/branch)
-        ProjectEvent("start_training").publish(
-            payload={"processed_paths": self.processed_paths}
+        # Payload values map to Parameters, so send as JSON string
+        import json
+        pe = ProjectEvent("start_training")
+        # print(f"ProjectEvent: {pe} is publishing on project {pe.project} and branch {pe.branch}.")
+        pe.publish(
+            payload={"processed_paths": json.dumps(self.processed_paths)}
         )
         print("Published start_training event")
 
