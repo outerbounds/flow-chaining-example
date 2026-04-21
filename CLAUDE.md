@@ -1,39 +1,45 @@
-# Flow Chaining Example (flow_chaining_demo)
+# Flow Chaining Example
 
-Minimal example demonstrating two patterns for chaining flows:
-`@project_trigger(event=...)` for event-based triggering with payload,
-and `@trigger_on_finish(flow=...)` for direct flow completion chaining.
+Multi-step ML pipelines rarely fit in a single flow. This project shows how to split preprocessing and training into separate flows that trigger each other — useful when teams own different stages, when stages have different compute/dependency profiles, or when you want to rerun training without re-preprocessing.
 
-## Platform Features Used
+## Architecture
 
-- **Events**: `ProjectEvent("start_training")` published from PreprocessFlow, consumed by TrainFlow via `@project_trigger`
-- **Apps**: Trigger app in `deployments/trigger-app/` for firing events from a UI
+```
+PreprocessFlow (foreach parallel)
+  → publishes ProjectEvent("start_training") with payload
+  → TrainFlow receives payload as Parameters, runs training
+```
+
+A trigger app in `deployments/trigger-app/` lets you fire events from a UI for testing.
+
+## Platform features used
+
+- **Events**: `ProjectEvent` + `@project_trigger` for flow-to-flow communication with payload
+- **Foreach**: Parallel dataset processing
+- **Apps**: Trigger app deployment for manual event firing
 
 ## Flows
 
-| Flow | Trigger | Purpose |
-|------|---------|---------|
-| PreprocessFlow | Manual | Parallel dataset processing via `foreach`, publishes `start_training` event |
-| TrainFlow | @project_trigger(start_training) | Receives event payload as Parameters, runs training |
+| Flow | Trigger | What it does |
+|------|---------|-------------|
+| PreprocessFlow | Manual | Splits datasets via foreach, processes in parallel, publishes `start_training` event with processed paths as payload |
+| TrainFlow | `@project_trigger(event="start_training")` | Receives paths via Parameter mapping, trains model |
 
-## Key Pattern
+## CI strategy
 
-PreprocessFlow publishes a `ProjectEvent("start_training")` with payload.
-TrainFlow's `@project_trigger(event="start_training")` maps payload keys to
-`Parameter` names (e.g., `processed_paths`). This is the recommended approach
-over `@trigger_on_finish` when you need to pass data via event payload.
+Deploy-only (no teardown or promote). Push to main triggers deploy. Uses `--from-obproject-toml` to read platform config — no yq needed.
 
-## Run Locally
+## Run locally
 
 ```bash
-cd flow-chaining-example
 python flows/preprocess/flow.py run --datasets "path1,path2,path3"
 python flows/train/flow.py run --learning_rate 0.05 --n_estimators 200
 ```
 
-## Common Pitfalls
+Event-based triggering only works when deployed — locally, run flows independently.
 
-- Event payload values map to Parameters by name; `processed_paths` is sent as JSON string and parsed in the flow
-- `@project_trigger` is branch-scoped (events only trigger flows on the same branch)
-- TrainFlow cannot access upstream artifacts when triggered by event (unlike `@trigger_on_finish` which exposes `current.trigger.run.data`)
-- The README describes `@trigger_on_finish` but the actual code uses `@project_trigger` -- the event-based pattern was adopted later
+## Good to know
+
+- `@project_trigger` is branch-scoped: events on branch X only trigger flows on branch X. Different from `@trigger` which is global.
+- Event payload keys map to Parameter names by exact string match (`processed_paths` in payload → `processed_paths = Parameter(...)` in TrainFlow).
+- Two chaining patterns exist: `@project_trigger(event=...)` passes explicit payload data. `@trigger_on_finish(flow=...)` gives access to upstream artifacts via `current.trigger.run.data`. Choose based on your data passing needs.
